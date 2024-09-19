@@ -1,9 +1,10 @@
 {
-    "name": "@pantoninho/use-uploader",
+    "name": "use-uploader",
     "version": "0.1.0",
     "description": "",
     "type": "module",
     "main": "index.js",
+    "homepage": "https://github.com/pantoninho/use-uploader",
     "scripts": {
         "test": "vitest",
         "coverage": "vitest run --coverage",
