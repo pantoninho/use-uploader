@@ -1,0 +1,6 @@
+tests
+node_modules
+coverage
+vitest.config.mjs
+eslint.config.mjs
+prettier.config.mjs
