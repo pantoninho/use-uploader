@@ -8,7 +8,7 @@
         "test": "vitest",
         "coverage": "vitest run --coverage",
         "format": "prettier --write .",
-        "lint": "eslint ."
+        "lint": "eslint lib/ tests/ index.js"
     },
     "keywords": [],
     "author": "",

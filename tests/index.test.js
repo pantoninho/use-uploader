@@ -22,7 +22,7 @@ describe('useUploader', () => {
         });
 
         rerender();
-        const state = hook.current.state.files[file.name];
+        const state = hook.current.state.uploads[file.name];
         expect(state.data).toBe(URL);
         expect(state.error).toBeFalsy();
     });
@@ -61,7 +61,7 @@ describe('useUploader', () => {
         });
 
         rerender();
-        const state = hook.current.state.files[file.name];
+        const state = hook.current.state.uploads[file.name];
         expect(state.data).toEqual(URLS);
         expect(uploadChunk).toHaveBeenCalledTimes(URLS.length);
     });
@@ -96,12 +96,12 @@ describe('useUploader', () => {
         await hook.current.upload({ file, to: URLS });
 
         rerender();
-        const state = hook.current.state.files[file.name];
+        const state = hook.current.state.uploads[file.name];
         expect(state.error).toBe(error);
         expect(state.data).toBeFalsy();
     });
 
-    it('should provide progress indicator', async () => {
+    it('should provide per-file progress indicator', async () => {
         const URLS = [
             'https://upload.example/part/1',
             'https://upload.example/part/2',
@@ -124,17 +124,17 @@ describe('useUploader', () => {
         const resultsPromise = upload({ file, to: URLS });
         rerender();
 
-        let state = result.current.state.files[file.name];
+        let state = result.current.state.uploads[file.name];
         expect(state.isUploading).toBe(true);
         expect(state.progress).toBe(0);
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        state = result.current.state.files[file.name];
+        state = result.current.state.uploads[file.name];
         expect(state.progress).toBeGreaterThan(0);
 
         await resultsPromise;
         rerender();
-        state = result.current.state.files[file.name];
+        state = result.current.state.uploads[file.name];
         expect(state.progress).toBe(1);
         expect(state.isUploading).toBe(false);
     });

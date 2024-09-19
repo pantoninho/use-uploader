@@ -11,8 +11,7 @@ import { uploaderStateReducer, actions } from './lib/state-reducer.js';
 export function useUploader({ threads = 5, uploadChunk }) {
     const [state, dispatch] = React.useReducer(uploaderStateReducer, {
         isUploading: false,
-        progress: 0,
-        files: {},
+        uploads: {},
     });
 
     async function upload({ file, to }) {
