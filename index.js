@@ -112,8 +112,21 @@ function createUploadParts({ file, urls }) {
 /**
  * @typedef {Object} Uploader
  * @property {function({file: File, to: string[] | string})} upload uploads a file to the specified URLs.
- * @property {Map<string, boolean>} isUploading whether the uploader is currently uploading a file, keyed by the file name.
- * @property {Map<string, any>} data the data returned by each upload, keyed by the file name.
- * @property {Map<string, Error>} errors errors that occurred during an upload, keyed by the file name.
- * @property {Map<String, Float>} progress the progress of each upload, keyed by the file name
+ * @property {UploaderState} state the current state of the uploader.
+ */
+
+/**
+ * @typedef {Object} UploaderState
+ * @property {boolean} isUploading whether the uploader is currently uploading.
+ * @property {Map<string, FileUploadState>} uploads the uploads that are currently in progress.
+ */
+
+/**
+ * @typedef {Object} FileUploadState
+ * @property {boolean} isUploading whether the file is currently uploading.
+ * @property {number} progress the progress of the upload (0-1).
+ * @property {number} loaded the number of bytes that have been uploaded.
+ * @property {number} total the total number of bytes to upload.
+ * @property {Error} error the error that occurred during the upload.
+ * @property {any} data response data from the upload
  */

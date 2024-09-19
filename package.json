@@ -1,7 +1,7 @@
 {
-    "name": "use-uploader",
-    "version": "0.1.0",
-    "description": "",
+    "name": "@pantoninho/use-uploader",
+    "version": "0.1.1",
+    "description": "a react hook for uploading files with support for concurrent multipart uploads and progress tracking.",
     "type": "module",
     "main": "index.js",
     "homepage": "https://github.com/pantoninho/use-uploader",
@@ -12,8 +12,8 @@
         "lint": "eslint lib/ tests/ index.js"
     },
     "keywords": [],
-    "author": "",
-    "license": "ISC",
+    "author": "pantoninho",
+    "license": "MIT",
     "peerDependencies": {
         "react": "^18.3.1",
         "react-dom": "^18.3.1"
@@ -29,5 +29,16 @@
         "jsdom": "^25.0.0",
         "prettier": "^3.3.3",
         "vitest": "^2.1.1"
+    },
+    "directories": {
+        "lib": "lib",
+        "test": "tests"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/pantoninho/use-uploader.git"
+    },
+    "bugs": {
+        "url": "https://github.com/pantoninho/use-uploader/issues"
     }
 }
