@@ -1,141 +1,132 @@
 import { renderHook } from '@testing-library/react';
 import { useUploader } from '../index.js';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
 
+export const server = setupServer(
+    ...[
+        http.put('https://upload.example/error', () => {
+            return HttpResponse.error('Failed to upload');
+        }),
+        http.put('https://upload.example/*', ({ request }) => {
+            return HttpResponse.text(request.url);
+        }),
+    ],
+);
 const buffer = new ArrayBuffer(1024 * 1024 * 10);
 const file = new File([buffer], 'test.png');
 
 describe('useUploader', () => {
+    beforeAll(() => server.listen());
+    afterEach(() => server.resetHandlers());
+    afterAll(() => server.close());
+
     it('should be able to upload a single file and provide the response', async () => {
         const URL = 'https://upload.example/';
-        const uploadChunk = vi.fn(({ url }) => url);
 
-        const { result: hook, rerender } = renderHook(() =>
-            useUploader({ uploadChunk }),
-        );
+        const { result: hook, rerender } = renderHook(() => useUploader());
         await hook.current.upload({ file, to: URL });
-
-        expect(uploadChunk).toHaveBeenCalledWith({
-            chunk: file,
-            url: URL,
-            onProgress: expect.any(Function),
-        });
-
         rerender();
-        const state = hook.current.state.uploads[file.name];
+
+        while (!hook.current.uploads[file.name][URL].data) {
+            rerender();
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        const state = hook.current.uploads[file.name][URL];
+        expect(state.progress).toBe(1);
         expect(state.data).toBe(URL);
-        expect(state.error).toBeFalsy();
+        expect(state.error).toBeNull();
+        expect(state.isUploading).toBe(false);
     });
 
-    it('should be able to upload multiple chunks in parallel and provide results in order', async () => {
-        const URLS = [
-            'https://upload.example/part/1',
-            'https://upload.example/part/2',
-            'https://upload.example/part/3',
-            'https://upload.example/part/4',
-            'https://upload.example/part/5',
+    it('should be able to upload multiple files concurrently', async () => {
+        const requests = [
+            { file, to: 'https://upload.example/1' },
+            { file, to: 'https://upload.example/2' },
+            { file, to: 'https://upload.example/3' },
+            { file, to: 'https://upload.example/4' },
+            { file, to: 'https://upload.example/5' },
         ];
 
-        const uploadChunk = vi.fn(async ({ url }) => {
-            await new Promise((resolve) =>
-                setTimeout(resolve, Math.random() * 1000),
-            );
-
-            return url;
-        });
-
-        const { result: hook, rerender } = renderHook(() =>
-            useUploader({ threads: 2, uploadChunk }),
-        );
-
-        await hook.current.upload({ file, to: URLS });
-
-        URLS.forEach((url, i) => {
-            expect(uploadChunk.mock.calls[i]).toEqual([
-                {
-                    chunk: expect.any(Blob),
-                    url,
-                    onProgress: expect.any(Function),
-                },
-            ]);
-        });
-
+        const { result: hook, rerender } = renderHook(() => useUploader());
+        await hook.current.upload(requests);
         rerender();
-        const state = hook.current.state.uploads[file.name];
-        expect(state.data).toEqual(URLS);
-        expect(uploadChunk).toHaveBeenCalledTimes(URLS.length);
+
+        while (hook.current.isUploading) {
+            rerender();
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        requests.forEach((r) => {
+            expect(hook.current.uploads[r.file.name][r.to].progress).toBe(1);
+            expect(hook.current.uploads[r.file.name][r.to].data).toBe(r.to);
+        });
     });
 
-    it('should handle errors', async () => {
-        const URLS = [
-            'https://upload.example/part/1',
-            'https://upload.example/part/2',
-            'https://upload.example/part/3',
-            'https://upload.example/part/4',
-            'https://upload.example/part/5',
+    it('should gracefully handle errors', async () => {
+        const requests = [
+            { file, to: 'https://upload.example/1' },
+            { file, to: 'https://upload.example/2' },
+            { file, to: 'https://upload.example/error' },
+            { file, to: 'https://upload.example/4' },
+            { file, to: 'https://upload.example/5' },
         ];
-        const error = new Error('Failed to upload');
 
-        const uploadChunk = vi.fn(async ({ url }) => {
-            await new Promise((resolve) =>
-                setTimeout(resolve, Math.random() * 1000),
-            );
+        const { result: hook, rerender } = renderHook(() => useUploader());
 
-            // force failure on the third URL
-            if (url === URLS[2]) {
-                throw error;
+        await hook.current.upload(requests);
+        rerender();
+
+        while (hook.current.isUploading) {
+            rerender();
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        // check that one upload had error but others were successful
+        requests.forEach((r) => {
+            if (r.to === 'https://upload.example/error') {
+                expect(
+                    hook.current.uploads[r.file.name][r.to].error,
+                ).toBeTruthy();
+            } else {
+                expect(hook.current.uploads[r.file.name][r.to].progress).toBe(
+                    1,
+                );
+                expect(hook.current.uploads[r.file.name][r.to].data).toBe(r.to);
             }
-
-            return url;
         });
-
-        const { result: hook, rerender } = renderHook(() =>
-            useUploader({ threads: 2, uploadChunk }),
-        );
-
-        await hook.current.upload({ file, to: URLS });
-
-        rerender();
-        const state = hook.current.state.uploads[file.name];
-        expect(state.error).toBe(error);
-        expect(state.data).toBeFalsy();
     });
 
-    it('should provide per-file progress indicator', async () => {
-        const URLS = [
-            'https://upload.example/part/1',
-            'https://upload.example/part/2',
-            'https://upload.example/part/3',
-            'https://upload.example/part/4',
-            'https://upload.example/part/5',
+    it('should respect number of threads', async () => {
+        const requests = [
+            { file, to: 'https://upload.example/1' },
+            { file, to: 'https://upload.example/2' },
+            { file, to: 'https://upload.example/3' },
+            { file, to: 'https://upload.example/4' },
+            { file, to: 'https://upload.example/5' },
+            { file, to: 'https://upload.example/6' },
+            { file, to: 'https://upload.example/7' },
+            { file, to: 'https://upload.example/8' },
         ];
-
-        const uploadChunk = vi.fn(async ({ url, onProgress }) => {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            onProgress({ loaded: 1024 * 1024 * 2, total: 1024 * 1024 * 2 });
-            return url;
-        });
 
         const { result, rerender } = renderHook(() =>
-            useUploader({ threads: 2, uploadChunk }),
+            useUploader({ threads: 2 }),
         );
-        const { upload } = result.current;
 
-        const resultsPromise = upload({ file, to: URLS });
+        result.current.upload(requests);
         rerender();
 
-        let state = result.current.state.uploads[file.name];
-        expect(state.isUploading).toBe(true);
-        expect(state.progress).toBe(0);
+        const isUploading = (request) =>
+            result.current.uploads[request.file.name][request.to].isUploading;
 
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        state = result.current.state.uploads[file.name];
-        expect(state.progress).toBeGreaterThan(0);
-
-        await resultsPromise;
-        rerender();
-        state = result.current.state.uploads[file.name];
-        expect(state.progress).toBe(1);
-        expect(state.isUploading).toBe(false);
+        // at most 2 uploads should be active at any time
+        while (result.current.isUploading) {
+            const numberOfActiveUploads = requests.filter(isUploading).length;
+            expect(numberOfActiveUploads).toBeLessThanOrEqual(2);
+            rerender();
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
     });
 });

@@ -4,6 +4,7 @@
     "description": "a react hook for uploading files with support for concurrent multipart uploads and progress tracking.",
     "type": "module",
     "main": "index.js",
+    "types": "types/index.d.ts",
     "homepage": "https://github.com/pantoninho/use-uploader",
     "scripts": {
         "test": "vitest",
@@ -27,6 +28,7 @@
         "eslint-plugin-react": "^7.36.1",
         "globals": "^15.9.0",
         "jsdom": "^25.0.0",
+        "msw": "^2.6.6",
         "prettier": "^3.3.3",
         "vitest": "^2.1.1"
     },
@@ -40,5 +42,8 @@
     },
     "bugs": {
         "url": "https://github.com/pantoninho/use-uploader/issues"
+    },
+    "dependencies": {
+        "axios": "^1.7.8"
     }
 }

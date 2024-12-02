@@ -1,124 +1,71 @@
 import React from 'react';
-import { concurrent } from './lib/concurrent.js';
-import { uploaderStateReducer, actions } from './lib/state-reducer.js';
+import axios from 'axios';
+import { actions, uploaderStateReducer } from './lib/state-reducer.js';
 
 /**
+ * Use an uploader capable of concurrent uploads and progress tracking.
  * @param {object} params params
- * @param {number} params.threads number of concurrent threads
- * @param {function({chunk: Blob, url: string, onProgress: function(ProgressEvent): void}): Promise<Response>} params.uploadChunk function to upload a chunk
+ * @param {number} params.threads maximum number of concurrent threads
  * @returns {Uploader}
  */
-export function useUploader({ threads = 5, uploadChunk }) {
+export function useUploader({ threads = 5 } = {}) {
     const [state, dispatch] = React.useReducer(uploaderStateReducer, {
-        isUploading: false,
         uploads: {},
+        queue: [],
     });
 
-    async function upload({ file, to }) {
-        dispatch(actions.start(file));
+    const { uploads, queue } = state;
+
+    async function startUpload(request) {
+        const { file, to } = request;
 
         try {
-            const data = Array.isArray(to)
-                ? await concurrentUploads({
-                      file,
-                      urls: to,
-                      uploadChunk,
-                      threads,
-                      onProgress: (e) => dispatch(actions.progress(file, e)),
-                  })
-                : await uploadChunk({
-                      chunk: file,
-                      url: to,
-                      onProgress: (e) => dispatch(actions.progress(file, e)),
-                  });
+            dispatch(actions.start(request));
 
-            dispatch(actions.complete(file, data));
-            return data;
-        } catch (error) {
-            dispatch(actions.error(file, error));
+            const res = await axios.put(to, file, {
+                onUploadProgress: (e) => dispatch(actions.progress(request, e)),
+            });
+
+            dispatch(actions.complete(request, res.data));
+        } catch (err) {
+            dispatch(actions.error(request, err));
         }
     }
 
+    React.useEffect(() => {
+        const isNotUploading = (request) =>
+            !uploads[request.file.name][request.to].isUploading;
+        const pendingUploads = queue.filter(isNotUploading);
+        const buffer = Math.min(threads, pendingUploads.length);
+        const nextUploads = pendingUploads.slice(0, buffer);
+
+        nextUploads.forEach(startUpload);
+    }, [queue.map((r) => `${r.file.name}:${r.to}`).join(',')]);
+
     return {
-        state,
-        upload,
+        isUploading: queue.length > 0,
+        uploads,
+        upload: (requests) => {
+            const requestsArray = Array.isArray(requests)
+                ? requests
+                : [requests];
+
+            requestsArray.forEach((r) => dispatch(actions.request(r)));
+        },
     };
 }
 
-async function concurrentUploads({
-    file,
-    urls,
-    uploadChunk,
-    threads,
-    onProgress,
-}) {
-    const bytesLoadedPerPart = [];
-    const parts = createUploadParts({ file, urls });
-
-    async function upload(part) {
-        const { from, to, url } = part;
-
-        return await uploadChunk({
-            chunk: file.slice(from, to),
-            url,
-            onProgress: (event) => {
-                bytesLoadedPerPart[part.index] = event.loaded;
-
-                onProgress({
-                    loaded: bytesLoadedPerPart.reduce(
-                        (acc, loaded) => acc + loaded,
-                        0,
-                    ),
-                    total: file.size,
-                });
-            },
-        });
-    }
-
-    return await concurrent({
-        threads,
-        jobs: parts.map((part) => () => upload(part)),
-    });
-}
-
 /**
- * @param {object} params params
- * @param {File} param.file file to split into parts
- * @param {String[]} param.urls urls to upload the parts to
- * @returns {Part[]} upload parts
- */
-function createUploadParts({ file, urls }) {
-    const chunkSize = Math.ceil(file.size / urls.length);
-
-    return urls.map((url, i) => {
-        return {
-            url,
-            index: i,
-            from: i * chunkSize,
-            to: Math.min((i + 1) * chunkSize, file.size),
-        };
-    });
-}
-
-/**
- * @typedef {Object} Part
- * @property {number} from the starting byte of the part.
- * @property {number} to the ending byte of the part.
- * @property {string} url the URL to upload the part to.
- * @property {string} verb the HTTP verb to use for the upload.
- * @property {number} index the index of the part.
+ * @typedef {Object} UploadRequest
+ * @property {File} file the file to upload
+ * @property {string} to the URLs to upload the file to
  */
 
 /**
  * @typedef {Object} Uploader
- * @property {function({file: File, to: string[] | string})} upload uploads a file to the specified URLs.
- * @property {UploaderState} state the current state of the uploader.
- */
-
-/**
- * @typedef {Object} UploaderState
+ * @property {function(UploadRequest|UploadRequest[])} upload upload a file or a set of files
  * @property {boolean} isUploading whether the uploader is currently uploading.
- * @property {Map<string, FileUploadState>} uploads the uploads that are currently in progress.
+ * @property {Map<string, Map<string, FileUploadState>>} uploads the uploads handled by the uploader.
  */
 
 /**
