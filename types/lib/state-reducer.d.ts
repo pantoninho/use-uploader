@@ -2,11 +2,7 @@ import { UploadRequest } from "../..";
 
 export interface UploaderState {
     queue: UploadRequest[];
-    uploads: {
-        [key: string]: {
-            [to: string]: FileUploadState;
-        }
-    }
+    uploads: Mapping<string, Mapping<string, FileUploadState>>;
 }
 
 export interface Action {

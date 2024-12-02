@@ -30,11 +30,7 @@ export interface Uploader {
     /**
      * the uploads handled by the uploader.
      */
-    uploads: {
-        [key: string]: {
-            [to: string]: FileUploadState;
-        }
-    }
+    uploads: Mapping<string, Mapping<string, FileUploadState>>;
 };
 export interface FileUploadState {
     /**
