@@ -1,19 +1,28 @@
-export function uploaderStateReducer(state: any, action: any): any;
+import { UploadRequest } from "../..";
+
+export interface UploaderState {
+    queue: UploadRequest[];
+    uploads: {
+        [key: string]: {
+            [to: string]: FileUploadState;
+        }
+    }
+}
+
+export interface Action {
+    type: string;
+    request: UploadRequest;
+    event?: ProgressEvent;
+    data?: unknown;
+    error?: Error;
+}
+
+export function uploaderStateReducer(state: UploaderState, action: Action): UploaderState;
+
 export const actions: {
-    [x: string]: ((request: any) => {
-        type: string;
-        request: any;
-    }) | ((request: any, e: any) => {
-        type: string;
-        request: any;
-        event: any;
-    }) | ((request: any, data: any) => {
-        type: string;
-        request: any;
-        data: any;
-    }) | ((request: any, error: any) => {
-        type: string;
-        request: any;
-        error: any;
-    });
+    request: (request: UploadRequest) => { type: string; request: UploadRequest; };
+    start: (request: UploadRequest) => { type: string; request: UploadRequest; };
+    progress: (request: UploadRequest, event: ProgressEvent) => { type: string; request: UploadRequest; event: ProgressEvent; };
+    complete: (request: UploadRequest, data: unknown) => { type: string; request: UploadRequest; data: unknown; };
+    error: (request: UploadRequest, error: Error) => { type: string; request: UploadRequest; error: Error; };
 };

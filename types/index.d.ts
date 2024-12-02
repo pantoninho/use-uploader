@@ -7,7 +7,8 @@
 export function useUploader({ threads }?: {
     threads: number;
 }): Uploader;
-export type UploadRequest = {
+
+export interface UploadRequest {
     /**
      * the file to upload
      */
@@ -17,11 +18,11 @@ export type UploadRequest = {
      */
     to: string;
 };
-export type Uploader = {
+export interface Uploader {
     /**
-     * upload a file or a set of files
+     * queue an upload request
      */
-    upload: (request: UploadRequest | UploadRequest[]) => any;
+    upload: (request: UploadRequest | UploadRequest[]) => void;
     /**
      * whether the uploader is currently uploading.
      */
@@ -35,7 +36,7 @@ export type Uploader = {
         }
     }
 };
-export type FileUploadState = {
+export interface FileUploadState {
     /**
      * whether the file is currently uploading.
      */
@@ -59,5 +60,5 @@ export type FileUploadState = {
     /**
      * response data from the upload
      */
-    data: any;
+    data: unknown;
 };
