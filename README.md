@@ -1,5 +1,7 @@
 # use-uploader
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/2cbcbe1525fd4ca19d0035db3eb51efa)](https://app.codacy.com/gh/pantoninho/use-uploader?utm_source=github.com&utm_medium=referral&utm_content=pantoninho/use-uploader&utm_campaign=Badge_Grade)
+
 a react hook for uploading files with support for concurrent multipart uploads and progress tracking.
 
 ## installation
