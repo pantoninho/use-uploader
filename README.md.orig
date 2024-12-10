@@ -19,24 +19,24 @@ a hook for uploading files with support for concurrent multipart uploads and pro
 
 #### arguments
 
-- `options` (`Object`): an object containing the following properties:
-  - `threads` (`number`, optional): the number of concurrent uploads **per file**. defaults to `5`.
+1. `options` (`Object`): an object containing the following properties:
+    - `threads` (`number`, optional): the number of concurrent uploads **per file**. defaults to `5`.
 
 #### returns
 
 an object with the following properties:
 
-- `upload` (`Function`): a function that uploads a file. It receives an object or an array of objects with the following properties:
-  - `file` (`File`): the file to upload.
-  - `to` (`string`): URL to upload the file to.
-- `uploads` (`object`): a object containing the upload progress for each file. the keys are the filenames and their destinations, and the values are objects with the following properties:
-  - `key` (`string`): a unique key for the upload.
-  - `isUploading` (`boolean`): a boolean indicating whether the file is being uploaded.
-  - `progress` (`number`): the file upload progress as a number between `0` and `1`.
-  - `loaded` (`number`): the number of bytes uploaded.
-  - `total` (`number`): the total file size in bytes.
-  - `data` (`any`): data returned by the response
-  - `error` (`Error`): error returned by the response
+-   `upload` (`Function`): a function that uploads a file. It receives an object or an array of objects with the following properties:
+    - `file` (`File`): the file to upload.
+    - `to` (`string`): URL to upload the file to.
+-   `uploads` (`object`): a object containing the upload progress for each file. the keys are the filenames and their destinations, and the values are objects with the following properties:
+    - `key` (`string`): a unique key for the upload.
+    -   `isUploading` (`boolean`): a boolean indicating whether the file is being uploaded.
+    -   `progress` (`number`): the file upload progress as a number between `0` and `1`.
+    - `loaded` (`number`): the number of bytes uploaded.
+    - `total` (`number`): the total file size in bytes.
+    - `data` (`any`): data returned by the response
+    -   `error` (`Error`): error returned by the response
 
 ## example
 
