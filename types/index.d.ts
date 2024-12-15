@@ -23,7 +23,8 @@ export interface Uploader {
     /**
      * queue an upload request
      */
-    upload: (request: UploadRequest | UploadRequest[]) => void;
+    upload: (request: UploadRequest) => string;
+    upload: (request: UploadRequest[]) => string[];
     /**
      * whether the uploader is currently uploading.
      */

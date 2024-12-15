@@ -34,12 +34,10 @@ export function useUploader({ threads = 5, uploadFile = axiosUpload } = {}) {
     }
 
     React.useEffect(() => {
-        const isNotUploading = (request) =>
-            !uploads[request.file.name][request.to].isUploading;
+        const isNotUploading = (request) => !uploads[request.id].isUploading;
         const pendingUploads = queue.filter(isNotUploading);
         const buffer = Math.min(threads, pendingUploads.length);
         const nextUploads = pendingUploads.slice(0, buffer);
-
         nextUploads.forEach(startUpload);
     }, [queue.map((r) => `${r.file.name}:${r.to}`).join(',')]);
 
@@ -47,17 +45,26 @@ export function useUploader({ threads = 5, uploadFile = axiosUpload } = {}) {
         isUploading: queue.length > 0,
         uploads,
         upload: (requests) => {
-            const requestsArray = Array.isArray(requests)
-                ? requests
-                : [requests];
+            requests = Array.isArray(requests) ? requests : [requests];
 
-            requestsArray.forEach((r) => dispatch(actions.request(r)));
+            requests = requests.map((r) => ({
+                ...r,
+                id: `${crypto.randomUUID()}`,
+            }));
+
+            requests.forEach((r) => dispatch(actions.request(r)));
+
+            if (requests.length === 1) {
+                return requests[0].id;
+            }
+
+            return requests.map((r) => r.id);
         },
     };
 }
 
-function axiosUpload(file, to, onUploadProgress) {
-    const { data } = axios.put(to, file, { onUploadProgress });
+async function axiosUpload(file, to, onUploadProgress) {
+    const { data } = await axios.put(to, file, { onUploadProgress });
     return data;
 }
 

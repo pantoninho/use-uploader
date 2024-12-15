@@ -26,15 +26,15 @@ describe('useUploader', () => {
         const URL = 'https://upload.example/';
 
         const { result: hook, rerender } = renderHook(() => useUploader());
-        await hook.current.upload({ file, to: URL });
+        const id = await hook.current.upload({ file, to: URL });
         rerender();
 
-        while (!hook.current.uploads[file.name][URL].data) {
+        while (!hook.current.uploads[id].data) {
             rerender();
             await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
-        const state = hook.current.uploads[file.name][URL];
+        const state = hook.current.uploads[id];
         expect(state.progress).toBe(1);
         expect(state.data).toBe(URL);
         expect(state.error).toBeNull();
@@ -51,7 +51,7 @@ describe('useUploader', () => {
         ];
 
         const { result: hook, rerender } = renderHook(() => useUploader());
-        await hook.current.upload(requests);
+        const ids = await hook.current.upload(requests);
         rerender();
 
         while (hook.current.isUploading) {
@@ -59,9 +59,9 @@ describe('useUploader', () => {
             await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
-        requests.forEach((r) => {
-            expect(hook.current.uploads[r.file.name][r.to].progress).toBe(1);
-            expect(hook.current.uploads[r.file.name][r.to].data).toBe(r.to);
+        ids.forEach((id, i) => {
+            expect(hook.current.uploads[id].progress).toBe(1);
+            expect(hook.current.uploads[id].data).toBe(requests[i].to);
         });
     });
 
@@ -76,7 +76,7 @@ describe('useUploader', () => {
 
         const { result: hook, rerender } = renderHook(() => useUploader());
 
-        await hook.current.upload(requests);
+        const ids = await hook.current.upload(requests);
         rerender();
 
         while (hook.current.isUploading) {
@@ -85,16 +85,12 @@ describe('useUploader', () => {
         }
 
         // check that one upload had error but others were successful
-        requests.forEach((r) => {
-            if (r.to === 'https://upload.example/error') {
-                expect(
-                    hook.current.uploads[r.file.name][r.to].error,
-                ).toBeTruthy();
+        ids.forEach((id, i) => {
+            if (requests[i].to === 'https://upload.example/error') {
+                expect(hook.current.uploads[id].error).toBeTruthy();
             } else {
-                expect(hook.current.uploads[r.file.name][r.to].progress).toBe(
-                    1,
-                );
-                expect(hook.current.uploads[r.file.name][r.to].data).toBe(r.to);
+                expect(hook.current.uploads[id].progress).toBe(1);
+                expect(hook.current.uploads[id].data).toBe(requests[i].to);
             }
         });
     });
@@ -115,15 +111,14 @@ describe('useUploader', () => {
             useUploader({ threads: 2 }),
         );
 
-        result.current.upload(requests);
+        const ids = result.current.upload(requests);
         rerender();
 
-        const isUploading = (request) =>
-            result.current.uploads[request.file.name][request.to].isUploading;
+        const isUploading = (id) => result.current.uploads[id].isUploading;
 
         // at most 2 uploads should be active at any time
         while (result.current.isUploading) {
-            const numberOfActiveUploads = requests.filter(isUploading).length;
+            const numberOfActiveUploads = ids.filter(isUploading).length;
             expect(numberOfActiveUploads).toBeLessThanOrEqual(2);
             rerender();
             await new Promise((resolve) => setTimeout(resolve, 100));
