@@ -7,7 +7,7 @@ import { http, HttpResponse } from 'msw';
 export const server = setupServer(
     ...[
         http.put('https://upload.example/error', () => {
-            return HttpResponse.error('Failed to upload');
+            return HttpResponse.text('error', { status: 400 });
         }),
         http.put('https://upload.example/*', ({ request }) => {
             return HttpResponse.text(request.url);
@@ -22,11 +22,11 @@ describe('useUploader', () => {
     afterEach(() => server.resetHandlers());
     afterAll(() => server.close());
 
-    it('should be able to upload a single file and provide the response', async () => {
+    it('should be able to upload a single file and provide upload state', async () => {
         const URL = 'https://upload.example/';
 
         const { result: hook, rerender } = renderHook(() => useUploader());
-        const id = await hook.current.upload({ file, to: URL });
+        const id = hook.current.upload({ file, to: URL });
         rerender();
 
         while (!hook.current.uploads[id].data) {
@@ -41,6 +41,18 @@ describe('useUploader', () => {
         expect(state.isUploading).toBe(false);
     });
 
+    it('should be able to wait for a single upload', async () => {
+        const URL = 'https://upload.example/1';
+
+        const { result: hook, rerender } = renderHook(() => useUploader());
+        const id = hook.current.upload({ file, to: URL });
+        rerender();
+
+        const response = await hook.current.waitFor(id);
+        expect(response.data).toBe(URL);
+        expect(response.error).toBeNull();
+    });
+
     it('should be able to upload multiple files concurrently', async () => {
         const requests = [
             { file, to: 'https://upload.example/1' },
@@ -51,17 +63,37 @@ describe('useUploader', () => {
         ];
 
         const { result: hook, rerender } = renderHook(() => useUploader());
-        const ids = await hook.current.upload(requests);
+        const ids = hook.current.upload(requests);
         rerender();
 
         while (hook.current.isUploading) {
-            rerender();
             await new Promise((resolve) => setTimeout(resolve, 100));
+            rerender();
         }
 
         ids.forEach((id, i) => {
             expect(hook.current.uploads[id].progress).toBe(1);
             expect(hook.current.uploads[id].data).toBe(requests[i].to);
+        });
+    });
+
+    it('should be able to wait for multiple uploads', async () => {
+        const requests = [
+            { file, to: 'https://upload.example/1' },
+            { file, to: 'https://upload.example/2' },
+            { file, to: 'https://upload.example/3' },
+            { file, to: 'https://upload.example/4' },
+            { file, to: 'https://upload.example/5' },
+        ];
+
+        const { result: hook, rerender } = renderHook(() => useUploader());
+        const ids = hook.current.upload(requests);
+        rerender();
+
+        const responses = await hook.current.waitFor(ids);
+        responses.forEach((response, i) => {
+            expect(response.data).toBe(requests[i].to);
+            expect(response.error).toBeNull();
         });
     });
 
@@ -76,12 +108,12 @@ describe('useUploader', () => {
 
         const { result: hook, rerender } = renderHook(() => useUploader());
 
-        const ids = await hook.current.upload(requests);
+        const ids = hook.current.upload(requests);
         rerender();
 
         while (hook.current.isUploading) {
-            rerender();
             await new Promise((resolve) => setTimeout(resolve, 100));
+            rerender();
         }
 
         // check that one upload had error but others were successful
@@ -91,6 +123,33 @@ describe('useUploader', () => {
             } else {
                 expect(hook.current.uploads[id].progress).toBe(1);
                 expect(hook.current.uploads[id].data).toBe(requests[i].to);
+            }
+        });
+    });
+
+    it('wait should gracefully handle errors', async () => {
+        const requests = [
+            { file, to: 'https://upload.example/1' },
+            { file, to: 'https://upload.example/2' },
+            { file, to: 'https://upload.example/error' },
+            { file, to: 'https://upload.example/4' },
+            { file, to: 'https://upload.example/5' },
+        ];
+
+        const { result: hook, rerender } = renderHook(() => useUploader());
+
+        const ids = hook.current.upload(requests);
+        rerender();
+
+        const responses = await hook.current.waitFor(ids);
+
+        responses.forEach((response, i) => {
+            if (requests[i].to === 'https://upload.example/error') {
+                expect(response.error).toBeTruthy();
+                expect(response.data).toBeNull();
+            } else {
+                expect(response.data).toBe(requests[i].to);
+                expect(response.error).toBeNull();
             }
         });
     });

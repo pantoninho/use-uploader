@@ -7,9 +7,16 @@ import { actions, uploaderStateReducer } from './lib/state-reducer.js';
  * @param {object} params params
  * @param {number} [params.threads] maximum number of concurrent threads
  * @param {function} [params.uploadFile] function to upload a file
+ * @param {function} [params.onUploadStart] function called when a upload starts
+ * @param {function} [params.onUploadComplete] function called when a upload completes
  * @returns {Uploader}
  */
-export function useUploader({ threads = 5, uploadFile = axiosUpload } = {}) {
+export function useUploader({
+    threads = 5,
+    uploadFile = axiosUpload,
+    onUploadStart = () => {},
+    onUploadComplete = () => {},
+} = {}) {
     const [state, dispatch] = React.useReducer(uploaderStateReducer, {
         uploads: {},
         queue: [],
@@ -22,13 +29,16 @@ export function useUploader({ threads = 5, uploadFile = axiosUpload } = {}) {
 
         try {
             dispatch(actions.start(request));
+            onUploadStart(request);
 
             const data = await uploadFile(file, to, (e) =>
                 dispatch(actions.progress(request, e)),
             );
 
+            onUploadComplete(request);
             dispatch(actions.complete(request, data));
         } catch (err) {
+            console.log('ERROR');
             dispatch(actions.error(request, err));
         }
     }
@@ -39,7 +49,7 @@ export function useUploader({ threads = 5, uploadFile = axiosUpload } = {}) {
         const buffer = Math.min(threads, pendingUploads.length);
         const nextUploads = pendingUploads.slice(0, buffer);
         nextUploads.forEach(startUpload);
-    }, [queue.map((r) => `${r.file.name}:${r.to}`).join(',')]);
+    }, [queue.map((request) => request.id).join(',')]);
 
     return {
         isUploading: queue.length > 0,
@@ -60,6 +70,33 @@ export function useUploader({ threads = 5, uploadFile = axiosUpload } = {}) {
 
             return requests.map((r) => r.id);
         },
+        waitFor: async (ids) => {
+            ids = Array.isArray(ids) ? ids : [ids];
+
+            const promises = ids.map((id) => {
+                return uploads[id].promise;
+            });
+
+            const settledPromises = await Promise.allSettled(promises).then(
+                (settled) =>
+                    settled.map((promise) => ({
+                        data:
+                            promise.status === 'fulfilled'
+                                ? promise.value
+                                : null,
+                        error:
+                            promise.status === 'rejected'
+                                ? promise.reason
+                                : null,
+                    })),
+            );
+
+            if (settledPromises.length === 1) {
+                return settledPromises[0];
+            }
+
+            return settledPromises;
+        },
     };
 }
 
@@ -71,14 +108,14 @@ async function axiosUpload(file, to, onUploadProgress) {
 /**
  * @typedef {Object} UploadRequest
  * @property {File} file the file to upload
- * @property {string} to the URLs to upload the file to
+ * @property {string} to the URL to upload the file to
  */
 
 /**
  * @typedef {Object} Uploader
  * @property {function(UploadRequest|UploadRequest[])} upload upload a file or a set of files
  * @property {boolean} isUploading whether the uploader is currently uploading.
- * @property {Map<string, Map<string, FileUploadState>>} uploads the uploads handled by the uploader.
+ * @property {Map<string, FileUploadState>} uploads the uploads handled by the uploader.
  */
 
 /**
