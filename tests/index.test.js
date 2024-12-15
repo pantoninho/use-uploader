@@ -1,6 +1,14 @@
 import { renderHook } from '@testing-library/react';
 import { useUploader } from '../index.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+    afterAll,
+    afterEach,
+    beforeAll,
+    describe,
+    expect,
+    it,
+    vi,
+} from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
@@ -41,16 +49,21 @@ describe('useUploader', () => {
         expect(state.isUploading).toBe(false);
     });
 
-    it('should be able to wait for a single upload', async () => {
+    it('should call onComplete callback for a single upload', async () => {
         const URL = 'https://upload.example/1';
+        const onComplete = vi.fn();
 
         const { result: hook, rerender } = renderHook(() => useUploader());
-        const id = hook.current.upload({ file, to: URL });
+        hook.current.upload({ file, to: URL }, { onComplete });
         rerender();
 
-        const response = await hook.current.waitFor(id);
-        expect(response.data).toBe(URL);
-        expect(response.error).toBeNull();
+        while (hook.current.isUploading) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            rerender();
+        }
+
+        expect(onComplete).toHaveBeenCalled();
+        expect(onComplete).toHaveBeenCalledWith({ data: URL, error: null });
     });
 
     it('should be able to upload multiple files concurrently', async () => {
@@ -77,7 +90,7 @@ describe('useUploader', () => {
         });
     });
 
-    it('should be able to wait for multiple uploads', async () => {
+    it('should call onComplete callback with multiple uploads', async () => {
         const requests = [
             { file, to: 'https://upload.example/1' },
             { file, to: 'https://upload.example/2' },
@@ -86,15 +99,21 @@ describe('useUploader', () => {
             { file, to: 'https://upload.example/5' },
         ];
 
+        const onComplete = vi.fn();
+
         const { result: hook, rerender } = renderHook(() => useUploader());
-        const ids = hook.current.upload(requests);
+        hook.current.upload(requests, { onComplete });
         rerender();
 
-        const responses = await hook.current.waitFor(ids);
-        responses.forEach((response, i) => {
-            expect(response.data).toBe(requests[i].to);
-            expect(response.error).toBeNull();
-        });
+        while (hook.current.isUploading) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            rerender();
+        }
+
+        expect(onComplete).toHaveBeenCalled();
+        expect(onComplete).toHaveBeenCalledWith(
+            requests.map((r) => ({ data: r.to, error: null })),
+        );
     });
 
     it('should gracefully handle errors', async () => {
@@ -127,31 +146,32 @@ describe('useUploader', () => {
         });
     });
 
-    it('wait should gracefully handle errors', async () => {
+    it('onComplete callback should report errors', async () => {
         const requests = [
             { file, to: 'https://upload.example/1' },
             { file, to: 'https://upload.example/2' },
-            { file, to: 'https://upload.example/error' },
+            { file, to: 'https://upload.example/error', error: true },
             { file, to: 'https://upload.example/4' },
             { file, to: 'https://upload.example/5' },
         ];
+        const onComplete = vi.fn();
 
         const { result: hook, rerender } = renderHook(() => useUploader());
-
-        const ids = hook.current.upload(requests);
+        hook.current.upload(requests, { onComplete });
         rerender();
 
-        const responses = await hook.current.waitFor(ids);
+        while (hook.current.isUploading) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            rerender();
+        }
 
-        responses.forEach((response, i) => {
-            if (requests[i].to === 'https://upload.example/error') {
-                expect(response.error).toBeTruthy();
-                expect(response.data).toBeNull();
-            } else {
-                expect(response.data).toBe(requests[i].to);
-                expect(response.error).toBeNull();
-            }
-        });
+        expect(onComplete).toHaveBeenCalled();
+        expect(onComplete).toHaveBeenCalledWith(
+            requests.map((r) => ({
+                data: r.error ? null : r.to,
+                error: r.error ? expect.anything() : null,
+            })),
+        );
     });
 
     it('should respect number of threads', async () => {

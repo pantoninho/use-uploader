@@ -1,6 +1,10 @@
 import React from 'react';
 import axios from 'axios';
-import { actions, uploaderStateReducer } from './lib/state-reducer.js';
+import {
+    actions,
+    resolvablePromise,
+    uploaderStateReducer,
+} from './lib/state-reducer.js';
 
 /**
  * Use an uploader capable of concurrent uploads and progress tracking.
@@ -38,7 +42,6 @@ export function useUploader({
             onUploadComplete(request);
             dispatch(actions.complete(request, data));
         } catch (err) {
-            console.log('ERROR');
             dispatch(actions.error(request, err));
         }
     }
@@ -54,15 +57,21 @@ export function useUploader({
     return {
         isUploading: queue.length > 0,
         uploads,
-        upload: (requests) => {
+        upload: (requests, { onComplete = () => {} } = {}) => {
             requests = Array.isArray(requests) ? requests : [requests];
 
             requests = requests.map((r) => ({
                 ...r,
                 id: `${crypto.randomUUID()}`,
+                promise: resolvablePromise(),
             }));
 
             requests.forEach((r) => dispatch(actions.request(r)));
+
+            onCompleteCallbackController(
+                requests.map((r) => r.promise),
+                onComplete,
+            );
 
             if (requests.length === 1) {
                 return requests[0].id;
@@ -70,39 +79,30 @@ export function useUploader({
 
             return requests.map((r) => r.id);
         },
-        waitFor: async (ids) => {
-            ids = Array.isArray(ids) ? ids : [ids];
-
-            const promises = ids.map((id) => {
-                return uploads[id].promise;
-            });
-
-            const settledPromises = await Promise.allSettled(promises).then(
-                (settled) =>
-                    settled.map((promise) => ({
-                        data:
-                            promise.status === 'fulfilled'
-                                ? promise.value
-                                : null,
-                        error:
-                            promise.status === 'rejected'
-                                ? promise.reason
-                                : null,
-                    })),
-            );
-
-            if (settledPromises.length === 1) {
-                return settledPromises[0];
-            }
-
-            return settledPromises;
-        },
     };
 }
 
 async function axiosUpload(file, to, onUploadProgress) {
     const { data } = await axios.put(to, file, { onUploadProgress });
     return data;
+}
+
+function onCompleteCallbackController(promises, onComplete) {
+    Promise.allSettled(promises)
+        .then((settled) =>
+            settled.map((promise) => ({
+                data: promise.status === 'fulfilled' ? promise.value : null,
+                error: promise.status === 'rejected' ? promise.reason : null,
+            })),
+        )
+        .then((responses) => {
+            if (responses.length === 1) {
+                onComplete(responses[0]);
+                return;
+            }
+
+            onComplete(responses);
+        });
 }
 
 /**
