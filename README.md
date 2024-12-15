@@ -1,7 +1,7 @@
+# use-uploader
+
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/3c3d99235106488c8fc1294baa609fa8)](https://app.codacy.com/gh/pantoninho/use-uploader/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/3c3d99235106488c8fc1294baa609fa8)](https://app.codacy.com/gh/pantoninho/use-uploader/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
-
-# use-uploader
 
 a react hook for uploading files with support for concurrent multipart uploads and progress tracking.
 

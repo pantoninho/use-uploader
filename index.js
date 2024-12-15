@@ -5,10 +5,11 @@ import { actions, uploaderStateReducer } from './lib/state-reducer.js';
 /**
  * Use an uploader capable of concurrent uploads and progress tracking.
  * @param {object} params params
- * @param {number} params.threads maximum number of concurrent threads
+ * @param {number} [params.threads] maximum number of concurrent threads
+ * @param {function} [params.uploadFile] function to upload a file
  * @returns {Uploader}
  */
-export function useUploader({ threads = 5 } = {}) {
+export function useUploader({ threads = 5, uploadFile = axiosUpload } = {}) {
     const [state, dispatch] = React.useReducer(uploaderStateReducer, {
         uploads: {},
         queue: [],
@@ -22,9 +23,9 @@ export function useUploader({ threads = 5 } = {}) {
         try {
             dispatch(actions.start(request));
 
-            const res = await axios.put(to, file, {
-                onUploadProgress: (e) => dispatch(actions.progress(request, e)),
-            });
+            const res = await uploadFile(file, to, (e) =>
+                dispatch(actions.progress(request, e)),
+            );
 
             dispatch(actions.complete(request, res.data));
         } catch (err) {
@@ -53,6 +54,10 @@ export function useUploader({ threads = 5 } = {}) {
             requestsArray.forEach((r) => dispatch(actions.request(r)));
         },
     };
+}
+
+function axiosUpload(file, to, onUploadProgress) {
+    return axios.put(to, file, { onUploadProgress });
 }
 
 /**

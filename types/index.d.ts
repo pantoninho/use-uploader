@@ -6,6 +6,7 @@
  */
 export function useUploader({ threads }?: {
     threads: number;
+    uploadFile: (file: File, to: string) => Promise<unknown>;
 }): Uploader;
 
 export interface UploadRequest {
