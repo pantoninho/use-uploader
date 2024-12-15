@@ -23,11 +23,11 @@ export function useUploader({ threads = 5, uploadFile = axiosUpload } = {}) {
         try {
             dispatch(actions.start(request));
 
-            const res = await uploadFile(file, to, (e) =>
+            const data = await uploadFile(file, to, (e) =>
                 dispatch(actions.progress(request, e)),
             );
 
-            dispatch(actions.complete(request, res.data));
+            dispatch(actions.complete(request, data));
         } catch (err) {
             dispatch(actions.error(request, err));
         }
@@ -57,7 +57,8 @@ export function useUploader({ threads = 5, uploadFile = axiosUpload } = {}) {
 }
 
 function axiosUpload(file, to, onUploadProgress) {
-    return axios.put(to, file, { onUploadProgress });
+    const { data } = axios.put(to, file, { onUploadProgress });
+    return data;
 }
 
 /**
