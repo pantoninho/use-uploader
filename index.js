@@ -58,7 +58,8 @@ export function useUploader({
         isUploading: queue.length > 0,
         uploads,
         upload: (requests, { onComplete = () => {} } = {}) => {
-            requests = Array.isArray(requests) ? requests : [requests];
+            const isArray = Array.isArray(requests);
+            requests = isArray ? requests : [requests];
 
             requests = requests.map((r) => ({
                 ...r,
@@ -70,10 +71,10 @@ export function useUploader({
 
             onCompleteCallbackController(
                 requests.map((r) => r.promise),
-                onComplete,
+                (responses) => onComplete(isArray ? responses : responses[0]),
             );
 
-            if (requests.length === 1) {
+            if (!isArray) {
                 return requests[0].id;
             }
 
@@ -95,14 +96,7 @@ function onCompleteCallbackController(promises, onComplete) {
                 error: promise.status === 'rejected' ? promise.reason : null,
             })),
         )
-        .then((responses) => {
-            if (responses.length === 1) {
-                onComplete(responses[0]);
-                return;
-            }
-
-            onComplete(responses);
-        });
+        .then(onComplete);
 }
 
 /**

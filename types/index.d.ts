@@ -9,8 +9,6 @@ export function useUploader({ threads, uploadFile, onUploadStart, onUploadComple
 export interface Uploader {
     upload: (request: UploadRequest) => string;
     upload: (request: UploadRequest[]) => string[];
-    waitFor: (uploadId: string) => Promise<{ data?: unknown, error?: Error }>;
-    waitFor: (uploadIds: string[]) => Promise<{ data?: unknown; error?: Error }[]>;
     isUploading: boolean;
     uploads: Mapping<string, FileUploadState>;
 };
@@ -28,4 +26,5 @@ export interface FileUploadState {
     total: number;
     error: Error;
     data: unknown;
+    promise: Promise<unknown>;
 };
